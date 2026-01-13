@@ -21,29 +21,28 @@ const ProcessTracker = () => {
     loadProcesses();
   }, []);
 
-  const loadProcesses = async () => {
+  const loadProcesses = () => {
     try {
-      const result = await window.storage.list('process:');
-      if (result && result.keys) {
-        const loadedProcesses = await Promise.all(
-          result.keys.map(async (key) => {
-            try {
-              const data = await window.storage.get(key);
-              return data ? JSON.parse(data.value) : null;
-            } catch {
-              return null;
-            }
-          })
-        );
-        setProcesses(loadedProcesses.filter(p => p !== null));
+      const stored = localStorage.getItem('processes');
+      if (stored) {
+        setProcesses(JSON.parse(stored));
       }
     } catch (error) {
-      console.log('Iniciando con datos vacíos');
+      console.error('Error cargando procesos:', error);
       setProcesses([]);
     }
   };
 
-  const saveProcess = async () => {
+  const saveToStorage = (data) => {
+    try {
+      localStorage.setItem('processes', JSON.stringify(data));
+    } catch (error) {
+      console.error('Error guardando procesos:', error);
+      alert('Error al guardar: ' + error.message);
+    }
+  };
+
+  const saveProcess = () => {
     if (!formData.name.trim()) {
       alert('El nombre del proceso es requerido');
       return;
@@ -56,23 +55,23 @@ const ProcessTracker = () => {
       updatedAt: new Date().toISOString()
     };
 
-    try {
-      await window.storage.set(`process:${process.id}`, JSON.stringify(process));
-      await loadProcesses();
-      resetForm();
-    } catch (error) {
-      alert('Error al guardar el proceso');
+    let updatedProcesses;
+    if (editingId) {
+      updatedProcesses = processes.map(p => p.id === editingId ? process : p);
+    } else {
+      updatedProcesses = [...processes, process];
     }
+
+    setProcesses(updatedProcesses);
+    saveToStorage(updatedProcesses);
+    resetForm();
   };
 
-  const deleteProcess = async (id) => {
+  const deleteProcess = (id) => {
     if (confirm('¿Estás seguro de eliminar este proceso?')) {
-      try {
-        await window.storage.delete(`process:${id}`);
-        await loadProcesses();
-      } catch (error) {
-        alert('Error al eliminar el proceso');
-      }
+      const updatedProcesses = processes.filter(p => p.id !== id);
+      setProcesses(updatedProcesses);
+      saveToStorage(updatedProcesses);
     }
   };
 
